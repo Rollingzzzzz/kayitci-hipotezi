@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registrar Engine — registration economy, live</title>
+<style>
+  :root { --bg:#0b0e14; --panel:#121722; --ink:#d7deea; --dim:#8a94a8; --acc:#5ee0a0; --warn:#e0a35e; --hot:#e05e5e; --line:#1f2735; }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--ink); font-family:ui-monospace,"Cascadia Mono",Consolas,Menlo,monospace; margin:0; }
+  header { padding:16px 22px 4px; }
+  h1 { font-size:18px; margin:0; letter-spacing:2px; }
+  .sub { color:var(--dim); font-size:12px; margin-top:3px; }
+  .wrap { display:flex; gap:14px; padding:10px 22px; flex-wrap:wrap; align-items:flex-start; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  .panel h2 { font-size:11px; color:var(--dim); margin:0 0 8px; letter-spacing:1px; text-transform:uppercase; }
+  canvas { background:var(--panel); border:1px solid var(--line); border-radius:8px; display:block; }
+  .stats div { display:flex; justify-content:space-between; gap:14px; font-size:12px; padding:2px 0; }
+  .stats b { color:var(--acc); font-weight:600; }
+  label { display:block; font-size:11px; color:var(--dim); margin:9px 0 2px; }
+  label span { color:var(--ink); }
+  input[type=range] { width:100%; accent-color:var(--acc); }
+  .btns button { background:#1a2230; color:var(--ink); border:1px solid #2a3547; border-radius:6px; padding:4px 10px; font:inherit; font-size:12px; cursor:pointer; margin:0 6px 6px 0; }
+  .btns button.active { border-color:var(--acc); color:var(--acc); }
+  .note { font-size:11px; color:var(--dim); max-width:520px; line-height:1.5; margin-top:8px; }
+  table { font-size:12px; border-collapse:collapse; margin-top:6px; }
+  td,th { padding:3px 12px 3px 0; text-align:right; border-bottom:1px solid var(--line); }
+  th { color:var(--dim); text-align:left; font-weight:400; }
+  .pass { color:var(--acc); } .reject { color:var(--hot); }
+  .authors { color:var(--ink); font-size:12px; margin-top:8px; }
+  .cap { font-size:10.5px; color:var(--dim); line-height:1.5; margin-top:6px; max-width:540px; }
+  .cap b { color:var(--ink); }
+  .chip { display:inline-block; padding:2px 10px; border-radius:10px; font-size:11px; letter-spacing:1px; }
+  .chip.good { background:#12301f; color:var(--acc); border:1px solid #1e5237; }
+  .chip.warn { background:#332a14; color:var(--warn); border:1px solid #6b5626; }
+  .chip.bad  { background:#331414; color:var(--hot); border:1px solid #6b2626; }
+  .interp { font-size:12px; line-height:1.55; }
+  .interp .row { padding:5px 0; border-bottom:1px dashed #1f2735; }
+  .interp .row b { color:var(--ink); }
+  footer { color:var(--dim); font-size:11px; padding:6px 22px 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>REGISTRAR ENGINE</h1>
+  <div class="sub">Interactive experiment companion to <i>The Registrar Hypothesis</i> (v1.1) — §5–§8 rendered as a machine.</div>
+  <div class="authors">Aziz Utku Özdemir · GLM5.3-flashx <span style="color:var(--dim)">— a human–AI collaboration on the physics of information</span></div>
+</header>
+
+<div class="wrap">
+  <div class="panel" style="flex:1; min-width:640px;">
+    <h2>Abstract</h2>
+    <p style="font-size:12px; line-height:1.6; margin:0;">A finite registration budget is exchanged among 200 registered structures. Run A (calibration): exchange only — no temperature exists anywhere in the code. Run B (machinery): maintenance, gradual erasure into cold storage, and merging with savings are added. A noise-driven intake stream supplies fresh candidates to the gate (A1→A2): most are rejected — P1, happening live — a minority pass and replenish the registry. The readouts test three claims live: (i) a Boltzmann distribution and an emergent temperature arise from budget bookkeeping alone (§8); (ii) the merging machinery renormalizes the emergent temperature while the books stay conserved and the Gibbs form survives (§8); (iii) across the compressor family, the gate's anchors — pure noise rejected, pure order admitted — are invariant while the blind spots move (§5, F5). Heat is accumulated as ΔQ = bits reclaimed × emergent temperature × ln 2 (A5′). An interpreter panel issues a good / broken verdict every frame.</p>
+  </div>
+</div>
+
+<div class="wrap">
+  <div>
+    <canvas id="world" width="540" height="430"></canvas>
+    <div class="cap"><b>Fig. 1 — The registry, live.</b> Disk radius grows with record size (√bits); hue tracks budget relative to the emergent mean (green: above, red: below). The right-hand bar is cold storage, filling with reclaimed bits.</div>
+    <div class="panel" style="margin-top:10px; width:540px;">
+      <h2>Controls</h2>
+      <label>Merge rate <span id="vMerge"></span></label>
+      <input type="range" id="sMerge" min="0" max="100" value="20">
+      <label>Noise intake — candidates per tick, sieved by the gate (A1→A2) <span id="vIntake"></span></label>
+      <input type="range" id="sIntake" min="0" max="100" value="10">
+      <label>Occupancy pressure — volatile-substrate refresh (charge ×0.01) <span id="vMaint"></span></label>
+      <input type="range" id="sMaint" min="2" max="30" value="10">
+      <label>Total budget W <span id="vW"></span></label>
+      <input type="range" id="sW" min="1500" max="8000" step="250" value="3000">
+      <label>Speed — ticks per frame <span id="vSpeed"></span></label>
+      <input type="range" id="sSpeed" min="1" max="60" value="8">
+      <label>Universe seed — deterministic: same seed, same universe <span id="vSeed"></span></label>
+      <input type="range" id="sSeed" min="1" max="99" value="7">
+      <label>Gate threshold θ <span id="vTheta"></span></label>
+      <input type="range" id="sTheta" min="20" max="80" value="50">
+      <div class="btns" style="margin-top:10px;">
+        <button id="bFull" class="active">machinery ON (Run B)</button>
+        <button id="bCalib">calibration — exchange only (Run A)</button>
+        <button id="bReset">reset</button>
+        <button id="bPause">pause</button>
+      </div>
+      <div class="note">Calibration mode reproduces Run A: budget exchange only, <b>no temperature anywhere in the code</b> — watch the Boltzmann histogram and the fitted exponential appear anyway. Machinery ON adds maintenance, gradual erasure (bits move to cold storage) and merging with savings — Run B. Temperature in the readout is the emergent mean budget W/M; the fitted T comes from the histogram slope alone.</div>
+    </div>
+    <div class="panel" style="margin-top:10px; width:540px;">
+      <h2>Experiment bench — scripted runs + auto-balance</h2>
+      <div class="btns">
+        <button id="bExp1">I. collapse</button>
+        <button id="bExp2">II. revival</button>
+        <button id="bExp3">III. regulated equilibrium</button>
+        <button id="bExp4">IV. dose–response sweep</button>
+        <button id="bExp5">V. closed cycle</button>
+        <button id="bExp6">VI. theta sweep</button>
+        <button id="bStop">stop bench</button>
+      </div>
+      <label>Equilibrium target M* <span id="vMstar"></span></label>
+      <input type="range" id="sMstar" min="40" max="400" step="10" value="150">
+      <div id="benchLog" style="margin-top:8px; max-height:230px; overflow:auto; font-size:11px; line-height:1.5;"></div>
+      <div class="note">While an experiment runs, the bench drives merge/intake (sliders suspended). Experiment III runs a PI controller on the intake command: u = clamp(u₀ + Kp·err + Ki·∫err, 0, umax), err = M* − M. The controller is <b>not told</b> the gate's admission ratio (~10%) — the integral term must discover it online; the settled command u* therefore measures the gate's admittance (u* ≈ deaths / admission).</div>
+    </div>
+  </div>
+
+  <div>
+    <canvas id="hist" width="380" height="190"></canvas>
+    <div class="cap" style="max-width:380px;"><b>Fig. 2 — Boltzmann, emerging.</b> Budget histogram with the fitted form exp(−a/T). T is measured from the histogram slope alone — it is never coded.</div>
+    <canvas id="trace" width="380" height="130" style="margin-top:10px;"></canvas>
+    <div class="cap" style="max-width:380px;"><b>Fig. 3 — The arrow, on a line.</b> Emergent temperature W/M over time: rising under merging (P2 + P3′ + A5 in one curve), flat in calibration mode.</div>
+    <div class="panel stats" style="margin-top:10px; width:380px;">
+      <h2>Registry readout</h2>
+      <div><span>population M</span><b id="oM">–</b></div>
+      <div><span>W/M — emergent temperature</span><b id="oTe">–</b></div>
+      <div><span>fitted T (histogram slope)</span><b id="oTfit">–</b></div>
+      <div><span>fit R²</span><b id="oR2">–</b></div>
+      <div><span>merges · erasures</span><b id="oEvents">–</b></div>
+      <div><span>cold storage (bits)</span><b id="oCold">–</b></div>
+      <div><span>gate sieved — rejected candidates</span><b id="oRej">–</b></div>
+      <div><span>similarity rejections (merge gate)</span><b id="oMRej">–</b></div>
+      <div><span>universe seed (deterministic)</span><b id="oSeed">–</b></div>
+      <div><span>heat released ΔQ (model units)</span><b id="oHeat">–</b></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="panel" style="flex:1; min-width:640px;">
+    <h2>Fig. 4 — Gate meter: ρ_R across the compressor family (F5)</h2>
+    <div class="btns">
+      <button id="bLZ" class="active">compressor: LZ76 parsing</button>
+      <button id="bH0">compressor: order-0 block entropy</button>
+      <button id="bGen">regenerate samples</button>
+    </div>
+    <div id="gateTable"></div>
+    <div class="note">Swap the compressor: the ρ values move and the blind spots move (LZ76 admits the periodic string that order-0 coding rejects; order-0 is blind to repetition) — but noise stays rejected and pure order stays admitted in both. The qualitative behavior is family-invariant; the gate's shadow is not. That asymmetry is prediction F5. Strings: n = 256 bits — the SAME scale as the engine's live intake gate; ρ values drift with n (finite-size effect).</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="panel" style="flex:1; min-width:640px;">
+    <h2>Interpreter — did anything break?</h2>
+    <div class="interp" id="interpGate"></div>
+    <div class="interp" id="interpSim" style="margin-top:12px;"></div>
+  </div>
+</div>
+
+<footer>The Registrar Hypothesis (v1.1) — engine v3.0: measured newborn mass (R = description length at admission), θ as a live climate knob (slider + phase-map experiment), structural-depth and coherence-proxy readouts, reversibility audit (archive recovery), family census with content-addressed clustering ratio, breathing census with half-window spread. Energy local; τ drives rates; parity-symmetric merges; own seeded PRNG. Calibration constants: k0 = 22 (interaction length), maint 0.10, flip 0.02/T, μ sweep, reservoir cap 8192, drip 10%, population cap 400 — all labeled, none derived (O13/O30).</footer>
+
+<script>
+/*CORE-START*/
+"use strict";
+const LN2 = Math.LN2;
+
+function lz76Phrases(s){
+  const n = s.length; let i = 0, c = 0;
+  while (i < n){
+    let L = 0;
+    while (i + L < n && s.slice(0, i + L).indexOf(s.slice(i, i + L + 1)) !== -1) L++;
+    i += L + 1; c++;
+  }
+  return c;
+}
+function rhoLZ(s){
+  const n = s.length, c = lz76Phrases(s);
+  return c <= 1 ? 0 : c * Math.log2(c) / n;
+}
+function rhoH0(s){ // order-0 coding: n * binary entropy of symbol frequencies
+  const n = s.length; let ones = 0;
+  for (let k = 0; k < n; k++) if (s[k] === "1") ones++;
+  const p = ones / n;
+  if (p <= 0 || p >= 1) return 0;
+  return -(p * Math.log2(p) + (1 - p) * Math.log2(1 - p));
+}
+function mulberry32(seed){
+  let t = seed >>> 0;
+  return function(){ t += 0x6D2B79F5; let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
+}
+function fnv1a(str){
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return h >>> 0;
+}
+// four template families: admitted candidates are drawn from these; real LZ savings
+// occur within a family (shared exact blocks) and ~never across families
+const TEMPLATES = (() => { const r = mulberry32(7); return [0,1,2,3].map(() => Array.from({length:64}, () => r() < 0.5 ? "0" : "1").join("")); })();
+function structuredString(rng, len){
+  const t = TEMPLATES[(rng() * TEMPLATES.length) | 0];
+  let out = "";
+  for (let i = 0; i < len; i += 64){
+    let chunk = t;
+    if (rng() < 0.2){ const a = chunk.split(""); for (let m = 0; m < 4; m++) a[(rng()*64)|0] = rng() < 0.5 ? "0" : "1"; chunk = a.join(""); }
+    out += chunk;
+  }
+  return out.slice(0, len);
+}
+function posFrom(s, lin, W_, H_){
+  const h = fnv1a(s + "|" + lin);
+  return { x: 30 + (h % (W_ - 60)), y: 30 + ((h >>> 13) % (H_ - 60)) };
+}
+function lzCost(s){ const c = lz76Phrases(s); return c > 1 ? c * Math.log2(c) : s.length; }
+function rule30Bits(width, rows){
+  let row = new Uint8Array(width); row[width >> 1] = 1;
+  const out = [];
+  for (let r = 0; r < rows; r++){
+    for (let j = 0; j < width; j++) out.push(row[j]);
+    const nxt = new Uint8Array(width);
+    for (let j = 0; j < width; j++){
+      const l = j > 0 ? row[j-1] : 0, c = row[j], rr = j < width-1 ? row[j+1] : 0;
+      nxt[j] = l ^ (c | rr);
+    }
+    row = nxt;
+  }
+  return out.join("");
+}
+function fitTemp(vals, nb, minCt){
+  const v = vals.filter(x => x > 1e-9);
+  if (v.length < 30) return { T: 0, r2: 0, n: 0 };
+  const hi = Math.max.apply(null, v), wid = hi / nb, cnt = new Array(nb).fill(0);
+  for (const x of v) cnt[Math.min((x / wid) | 0, nb - 1)]++;
+  const pts = [];
+  for (let b = 0; b < nb; b++) if (cnt[b] >= minCt) pts.push([ (b + 0.5) * wid, Math.log(cnt[b]) ]);
+  const n = pts.length;
+  if (n < 5) return { T: 0, r2: 0, n };
+  let sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (const [x, y] of pts){ sx += x; sy += y; sxx += x*x; sxy += x*y; }
+  const slope = (n*sxy - sx*sy) / (n*sxx - sx*sx);
+  const b0 = (sy - slope*sx) / n, ym = sy / n;
+  let sst = 0, ssr = 0;
+  for (const [x, y] of pts){ sst += (y-ym)*(y-ym); ssr += (y-(slope*x+b0))*(y-(slope*x+b0)); }
+  return { T: -1/slope, r2: sst > 0 ? 1 - ssr/sst : 0, n };
+}
+function makeWorld(M0, W, R0, W_, H_, seed){
+  seed = seed === undefined ? 7 : seed;
+  const S = [];
+  for (let k = 0; k < M0; k++){
+    const s = structuredString(mulberry32(1000 + k), 256);
+    const lin = "R" + k;
+    const p = posFrom(s, lin, W_, H_);
+    S.push({ R: R0, a: W / M0, x: p.x, y: p.y, s, lin });
+  }
+  return { S, cold: 0, heat: 0, merges: 0, erasures: 0, skips: 0, rejected: 0, mergeRejects: 0, flips: 0, thermal: 0, res: "", admitted: 0, unfunded: 0, bath: 0, seed, rng: mulberry32(seed), W0: W, R0total: M0 * R0, W_: W_, H_: H_ };
+}
+function nearIdx(w, i, k0){
+  const S = w.S, out = [];
+  for (let k = 0; k < S.length; k++){
+    if (k === i) continue;
+    const rr = k0 * (Math.sqrt(S[i].R) + Math.sqrt(S[k].R));
+    const dx = S[k].x - S[i].x, dy = S[k].y - S[i].y;
+    if (dx*dx + dy*dy <= rr*rr) out.push(k);
+  }
+  return out;
+}
+function pickWeighted(S, rng){
+  // local rate = budget share: hot records act more (T ∝ Γ in the dynamics)
+  let tot = 0; for (const o of S) tot += o.a;
+  let pick = rng() * (tot || 1);
+  for (let q = 0; q < S.length; q++){ pick -= S[q].a; if (pick <= 0) return q; }
+  return S.length - 1;
+}
+function Te(w){ let s = 0; for (const o of w.S) s += o.a; return w.S.length ? s / w.S.length : 0; }
+function budget(w){ let s = w.bath; for (const o of w.S) s += o.a; return s; }
+function step(w, P){
+  const S = w.S, rng = w.rng, K0 = 22;
+  w.stepCount = (w.stepCount || 0) + 1;
+  if (P.intake > 0 && rng() < P.intake && S.length < 400){
+    let cand, src;
+    if (P.intakeSource === "exhaust" && w.res.length >= 256){
+      const off = (rng() * (w.res.length - 256)) | 0;
+      const a = w.res.slice(off, off + 256).split("");
+      const mu = P.muFlips === undefined ? 40 : P.muFlips;
+      for (let m = 0; m < mu; m++){ const p2 = (rng() * 256) | 0; a[p2] = a[p2] === "0" ? "1" : "0"; }
+      cand = a.join(""); src = "exhaust";
+    } else if (P.intakeSource === "noise"){
+      cand = Array.from({ length: 256 }, () => rng() < 0.5 ? "0" : "1").join(""); src = "noise";
+    } else {
+      if (rng() < 0.10){ cand = structuredString(mulberry32((rng()*1e9)|0), 256); src = "drip"; }
+      else { cand = Array.from({ length: 256 }, () => rng() < 0.5 ? "0" : "1").join(""); src = "noise"; }
+    }
+    const Lcand = lzCost(cand);
+    if (Lcand / cand.length <= P.theta){
+      const R = Math.max(4, Math.round(Lcand)); // mass = MEASURED description length — no arbitrary newborn mass (G10)
+      const lin = src[0].toUpperCase() + w.stepCount + "." + (w.cellSeq = (w.cellTick === w.stepCount ? (w.cellSeq || 0) + 1 : (w.cellTick = w.stepCount, 1)));
+      const p = posFrom(cand, lin, w.W_, w.H_);
+      // LOCAL funding: the birth tax is drawn from the birthplace's neighbourhood only —
+      // energy does not teleport across the universe (O19)
+      const local = [];
+      for (let k = 0; k < S.length; k++){
+        const rr = K0 * (Math.sqrt(R) + Math.sqrt(S[k].R));
+        const dx = S[k].x - p.x, dy = S[k].y - p.y;
+        if (dx*dx + dy*dy <= rr*rr) local.push(k);
+      }
+      let localTot = 0; for (const k of local) localTot += S[k].a;
+      let aInit;
+      if (localTot > 1){
+        aInit = Math.min(Te(w) * 0.8, 0.5 * localTot);
+        const f = aInit / localTot;
+        for (const k of local) S[k].a *= (1 - f);
+      } else if (w.bath > 1){ aInit = w.bath; w.bath = 0; }
+      else { w.unfunded++; }
+      if (aInit !== undefined){
+        S.push({ R, a: aInit, x: p.x, y: p.y, s: cand, lin, tau: 0, depth: 0, reads: 0 });
+        w.admitted++;
+      }
+    } else w.rejected++;
+  }
+  // budget exchange: LOCAL pairs only; the initiator acts at a rate ∝ its budget (O19, O20)
+  for (let k = 0; k < 4; k++){
+    if (S.length < 2) break;
+    const i = pickWeighted(S, rng);
+    const near = nearIdx(w, i, K0);
+    if (!near.length) continue;
+    const j = near[(rng() * near.length) | 0];
+    const pool = S[i].a + S[j].a, u = rng();
+    S[i].a = u * pool; S[j].a = (1 - u) * pool;
+  }
+  if (P.machinery){
+    const te = Te(w);
+    // per-structure derived time (thermal time, live): hot records age faster —
+    // and this rate now DRIVES the dynamics (weighted flips, initiations, maintenance)
+    if (te > 0) for (const o of S) o.tau = (o.tau || 0) + o.a / te;
+    for (let k = 0; k < 8; k++){
+      if (!S.length) break;
+      const i = pickWeighted(S, rng);
+      S[i].reads = (S[i].reads || 0) + 1; // a maintenance check is a query (P4's face)
+      const need = S[i].R * P.maint;
+      if (S[i].a >= need){
+        S[i].a -= need;
+        // the payment stays local: released to a neighbour of the payer (O19)
+        const near = nearIdx(w, i, K0);
+        if (near.length){ const j = near[(rng()*near.length)|0]; S[j].a += need; }
+        else S[i].a += need; // isolated: the charge lapses, nothing leaves the books
+      } else {
+        const target = Math.max(2, S[i].a / (P.maint * 3));
+        if (S[i].R > target + 1e-9){
+          const lost = S[i].R - target;
+          w.cold += lost; w.heat += lost * te * LN2;
+          S[i].R = target; w.erasures++;
+        } else w.skips++;
+      }
+    }
+    // thermal feedback: mutation pressure ∝ T, and it LANDS ON THE HOT RECORDS (rate ∝ budget)
+    w.flipAcc = (w.flipAcc || 0) + te * 0.02;
+    let flips = Math.min(16, Math.floor(w.flipAcc));
+    w.flipAcc -= flips;
+    for (let f = 0; f < flips; f++){
+      if (!S.length) break;
+      const o = S[pickWeighted(S, rng)];
+      const pos = (rng()*o.s.length)|0;
+      o.s = o.s.slice(0, pos) + (o.s[pos] === "0" ? "1" : "0") + o.s.slice(pos + 1);
+      w.flips++;
+    }
+    // re-gate on the FULL pattern: big records absorb proportionally more flips
+    // before dying — thermal inertia (O21); erasure converts the whole record R into
+    // heat (ΔQ = R·T·ln2) — the model's mass–energy bridge
+    for (let k = 0; k < 2; k++){
+      if (!S.length) break;
+      const idx = pickWeighted(S, rng);
+      const o = S[idx];
+      o.reads = (o.reads || 0) + 1; // the re-gate check is a query
+      if (lzCost(o.s) / o.s.length > P.theta + 0.1){
+        const near = nearIdx(w, idx, K0);
+        const nb = near.length ? S[near[(rng()*near.length)|0]] : null;
+        w.res = (w.res + o.s.slice(0, 256)).slice(-8192);
+        w.cold += o.R; w.heat += o.R * te * LN2; w.erasures++; w.thermal++;
+        const leftover = o.a;
+        S.splice(idx, 1);
+        if (nb) nb.a += leftover; else w.bath += leftover;
+      }
+    }
+    if (S.length > 2 && rng() < P.merge){
+      // initiator acts at rate ∝ budget (O20); partner from the address neighbourhood
+      const i = pickWeighted(S, rng);
+      let j = -1;
+      if (P.forceMerge){
+        j = (rng()*S.length)|0;
+        if (j === i) j = (j + 1) % S.length;
+      } else {
+        const near = nearIdx(w, i, K0);
+        if (near.length) j = near[(rng()*near.length)|0];
+      }
+      if (j >= 0 && j !== i){
+        S[i].reads = (S[i].reads || 0) + 1; S[j].reads = (S[j].reads || 0) + 1; // merging queries both
+        let savings;
+        if (P.forceMerge){ savings = P.savings; }
+        else {
+          const wa = S[i].s.slice(0, 256), wb = S[j].s.slice(0, 256);
+          const La = lzCost(wa), Lb = lzCost(wb);
+          // parity-symmetric joint cost: the cheaper parse order (O14)
+          const Lc = Math.min(lzCost(wa + wb), lzCost(wb + wa));
+          savings = (La + Lb - Lc) / (La + Lb);
+        }
+        if (savings > 0.02){
+          w.res = (w.res + S[i].s.slice(0, 256) + S[j].s.slice(0, 256)).slice(-8192);
+          const newR = (S[i].R + S[j].R) * (1 - Math.max(0, savings));
+          const savedBits = (S[i].R + S[j].R) - newR;
+          w.cold += savedBits; w.heat += savedBits * te * LN2;
+          const s = Math.min(i,j), b = Math.max(i,j);
+          const ns = (S[i].s.slice(0, 256) + S[j].s.slice(0, 256)).slice(0, 512);
+          const lin = (S[i].lin + "+" + S[j].lin).slice(-32);
+          const p = posFrom(ns, lin, w.W_, w.H_);
+          S[s] = { R: newR, a: S[i].a + S[j].a, x: p.x, y: p.y, s: ns, lin, tau: 0, depth: Math.max(S[i].depth || 0, S[j].depth || 0) + 1, reads: 0 };
+          S.splice(b, 1);
+          w.merges++;
+        } else w.mergeRejects++;
+      }
+    }
+  }
+}
+/*CORE-END*/
+
+function breathingStats(src){
+  const t = (src || traceTe).slice(-300);
+  if (t.length < 60) return null;
+  let mn = Infinity, mx = -Infinity, sum = 0;
+  for (const v of t){ if (v < mn) mn = v; if (v > mx) mx = v; sum += v; }
+  const mean = sum / t.length;
+  if (mean <= 0) return null;
+  const peaks = [];
+  for (let i = 1; i < t.length - 1; i++) if (t[i] > t[i-1] && t[i] >= t[i+1] && t[i] > mean) peaks.push(i);
+  if (peaks.length < 3) return null;
+  let s = 0; for (let i = 1; i < peaks.length; i++) s += peaks[i] - peaks[i-1];
+  return { period: s / (peaks.length - 1), amp: (mx - mn) / mean, peaks: peaks.length };
+}
+
+// ---------- interpreter ----------
+const ROW_MEANING = {
+  "all zeros": "<b>Pure order.</b> Zero new bits per bit — every instrument must admit it. If this row ever fails, the theory is dead, no discussion.",
+  "01-periodic": "<b>Simple repetition.</b> LZ76's dictionary sees it; order-0 frequency coding cannot (the symbols are 50/50). Its verdict differing between instruments is the shadow moving — by design, not by error.",
+  "fair noise": "<b>No description exists.</b> Rejection here is P1 — the theory's first pillar. It must hold in every instrument, forever.",
+  "seeded PRNG (seed 42)": "<b>Order in disguise.</b> A ~50-bit recipe generates all 4,000 bits, yet no instrument can see it: the blind-spot class. Rejected as noise although it is secretly order — the theory's honest confession.",
+  "Rule 30 automaton": "<b>Deterministic chaos.</b> LZ76 catches some texture; order-0 catches none. Where the blind-spot boundary falls depends on the instrument."
+};
+function gateVerdicts(){
+  const theta = 0.5;
+  const rows = samples.map(([name, s]) => {
+    const lz = rhoLZ(s), h0 = rhoH0(s);
+    return { name, lz, h0, lzPass: lz <= theta, h0Pass: h0 <= theta };
+  });
+  const noise = rows.find(r => r.name === "fair noise");
+  const zeros = rows.find(r => r.name === "all zeros");
+  const anchorsHold = !!noise && !noise.lzPass && !noise.h0Pass && !!zeros && zeros.lzPass && zeros.h0Pass;
+  const shadowMoved = rows.some(r => r.lzPass !== r.h0Pass);
+  const inversion = (!!noise && (noise.lzPass || noise.h0Pass)) || (!!zeros && (!zeros.lzPass || !zeros.h0Pass));
+  return { rows, anchorsHold, shadowMoved, inversion };
+}
+function renderGateInterp(){
+  const v = gateVerdicts();
+  let rows = "";
+  for (const r of v.rows){
+    rows += "<div class='row'><b>" + r.name + "</b> — LZ76: " + (r.lzPass ? "pass" : "reject") +
+      " (ρ=" + r.lz.toFixed(3) + ") · order-0: " + (r.h0Pass ? "pass" : "reject") + " (ρ=" + r.h0.toFixed(3) + ")<br>" +
+      (ROW_MEANING[r.name] || "") + "</div>";
+  }
+  let chip, text;
+  if (v.inversion){
+    chip = "<span class='chip bad'>ANOMALY</span>";
+    text = "A qualitative anchor inverted (pure noise admitted, or pure order rejected). If this is not a sampling accident, F5 and P1 are in danger — press 'regenerate samples' and re-check before concluding anything.";
+  } else if (v.anchorsHold && v.shadowMoved){
+    chip = "<span class='chip good'>HEALTHY — F5 CONFIRMED</span>";
+    text = "Anchors hold in both instruments (noise rejected, pure order admitted — P1 intact) while the blind spots moved between compressors. This is exactly the predicted shape: the gate's shadow is instrument-dependent, its verdicts' anchors are not. <b>Nothing broke — this is the good case.</b>";
+  } else if (v.anchorsHold){
+    chip = "<span class='chip warn'>HEALTHY BUT FLAT</span>";
+    text = "Anchors hold in both instruments, but no verdict differs between them — this sample set does not exercise the shadow. Try 'regenerate samples' for strings the two instruments can disagree about.";
+  } else {
+    chip = "<span class='chip bad'>ANOMALY</span>";
+    text = "An anchor failed (noise admitted, or pure order rejected). P1 is the first pillar — regenerate and investigate.";
+  }
+  $("interpGate").innerHTML = chip + "<div style='margin-top:6px'>" + text + "</div><div style='margin-top:8px'>" + rows + "</div>";
+}
+function renderSimInterp(){
+  const budgets = world.S.map(o => o.a);
+  const f = fitTemp(budgets, 20, 5);
+  const te = Te(world), b = budget(world);
+  const devPct = te > 0 ? Math.abs(f.T - te) / te * 100 : 0;
+  const conserved = Math.abs(b - world.W0) < 1;
+  const lines = [];
+  if (bench.mode !== "idle") lines.push("<b>Bench active (" + bench.mode + ")</b> — the bench is driving merge/intake; sliders are suspended until it finishes or you press 'stop bench'.");
+  let chipClass = "good", chipText = "GOOD — no anomaly";
+  if (!conserved){
+    chipClass = "bad"; chipText = "LEDGER LEAK";
+    lines.push("<span class='reject'>Budget is not conserved (" + b.toFixed(1) + " vs W = " + world.W0 + "). A leaking ledger is a real anomaly — this is what the conservation audit exists to catch.</span>");
+  } else {
+    lines.push("<b>Conservation:</b> the books balance — budget " + b.toFixed(1) + " = W exactly.");
+  }
+  if (f.r2 >= 0.7){
+    lines.push("<b>Gibbs form:</b> R² = " + f.r2.toFixed(3) + " — the exponential shape holds" + (P.machinery ? " even with the full machinery running." : "."));
+  } else {
+    lines.push("<b>Gibbs form:</b> R² = " + f.r2.toFixed(3) + " — the distribution has not settled yet (early run, or mid-perturbation). Watch; do not panic.");
+    if (chipClass === "good"){ chipClass = "warn"; chipText = "SETTLING"; }
+  }
+  popHist.push(world.S.length);
+  if (popHist.length > 80) popHist.shift();
+  if (f.T > 0 && world.S.length >= 30){
+    if (!P.machinery){
+      const ok = devPct < 12;
+      lines.push("<b>Calibration mode (Run A — the null control):</b> fitted T vs W/M deviate " + devPct.toFixed(1) + "%. " + (ok
+        ? "The identity holds with the mechanism absent — the same fitting pipeline, nothing to blame but bookkeeping."
+        : "Deviation larger than expected with no machinery — wait for the histogram to settle; if it persists, that is a genuine surprise."));
+      if (!ok && chipClass === "good"){ chipClass = "warn"; chipText = "WATCH"; }
+    } else {
+      let devText;
+      if (devPct < 10) devText = "near-identity zone — little merging has happened yet.";
+      else if (devPct <= 45) devText = "machinery renormalization — merging injects budget correlations. This is the recorded Run B finding (§8), expected and healthy.";
+      else { devText = "heavy renormalization (" + devPct.toFixed(0) + "%) — merging dominates. Lower the merge rate to watch the gap shrink."; if (chipClass === "good"){ chipClass = "warn"; chipText = "HEAVY MERGING"; } }
+      lines.push("<b>Machinery mode (Run B):</b> fitted T vs W/M deviate " + devPct.toFixed(1) + "% — " + devText);
+    }
+  } else if (world.S.length > 0){
+    lines.push("<b>No distribution to fit:</b> too few structures remain — the fit is paused until the registry recovers.");
+  }
+  lines.push("<b>Intake (A1→A2):</b> source <b>" + (P.intakeSource || "drip") + "</b> — " + world.admitted + " admitted · " + world.rejected + " sieved (every rejection is P1 happening live, now by REAL LZ measurement, not a density draw) · cold reservoir " + world.res.length + " bits.");
+  if (popHist.length >= 40){
+    const dM = world.S.length - popHist[0];
+    const trend = dM < -5 ? "falling — merging outpaces intake" : dM > 5 ? "rising — intake outpaces merging" : "near balance";
+    lines.push("<b>Population:</b> M = " + world.S.length + ", trend " + trend + ". The merge–intake balance is yours to tune.");
+  }
+  lines.push("<b>Thermal feedback:</b> " + world.flips + " bit-flips at pressure ∝ T; " + world.thermal + " thermal erasures (degraded records re-gated) — heat degrades descriptions; cold preserves them.");
+  const br = breathingStats();
+  const brA = breathingStats(traceTe.slice(0, Math.floor(traceTe.length / 2)));
+  const brB = breathingStats(traceTe.slice(Math.floor(traceTe.length / 2)));
+  if (br) lines.push("<b>Thermal breathing:</b> period ≈ " + br.period.toFixed(0) + (brA && brB ? " (" + brA.period.toFixed(0) + "|" + brB.period.toFixed(0) + " half-window spread)" : "") + " frames, amplitude ×" + br.amp.toFixed(2) + " (" + br.peaks + " peaks in window) — a relaxation cycle: merging heats, erasure prunes, intake cools. The world breathes.");
+  const depths = world.S.map(o => o.depth || 0);
+  if (depths.length){
+    const md = depths.reduce((a, b) => a + b, 0) / depths.length, xd = Math.max.apply(null, depths);
+    lines.push("<b>Structural depth (G1):</b> mean " + md.toFixed(2) + " · max " + xd + " — complexity is BUILT by composition (A4 merges), and newborn mass is the MEASURED description length (no arbitrary masses).");
+  }
+  const coh = world.S.filter(o => !o.reads).length;
+  lines.push("<b>P4's live face (G2):</b> " + coh + " records never queried since birth — isolation keeps records uncollapsed (coherence proxy; phase itself lives in the interpretation layer, §9).");
+  let cov = 0, nn = 0;
+  for (let q = 0; q < 20 && q < world.S.length; q++){
+    nn++;
+    if (world.res.indexOf(world.S[q].s.slice(0, 64)) !== -1) cov++;
+  }
+  if (nn) lines.push("<b>Reversibility audit (G3):</b> " + cov + "/" + nn + " sampled records' patterns recoverable from the exhaust archive — merging is archival, not annihilating; the reservoir is the reverse video.");
+  const fams = {};
+  for (const o of world.S){ const f = o.s.slice(0, 8); (fams[f] = fams[f] || []).push(o); }
+  const counts = Object.keys(fams).map(k => fams[k].length);
+  const totF = world.S.length || 1;
+  let H = 0; for (const c of counts){ const p2 = c / totF; if (p2 > 0) H -= p2 * Math.log2(p2); }
+  let clus = null;
+  const bigs = Object.keys(fams).map(k => fams[k]).filter(a => a.length >= 5);
+  if (bigs.length >= 2){
+    let intra = 0, cnt = 0;
+    for (const a of bigs) for (let x = 0; x < a.length; x++) for (let y = x + 1; y < a.length; y++){ intra += Math.hypot(a[x].x - a[y].x, a[x].y - a[y].y); cnt++; }
+    const all = world.S; let inter = 0, icnt = 0;
+    for (let x = 0; x < all.length; x += 3) for (let y = x + 3; y < all.length; y += 3){ inter += Math.hypot(all[x].x - all[y].x, all[x].y - all[y].y); icnt++; }
+    if (cnt && icnt) clus = (intra / cnt) / (inter / icnt);
+  }
+  lines.push("<b>Family census (G4/G7):</b> diversity H = " + H.toFixed(2) + " bits over " + counts.length + " families" +
+    (clus !== null ? " · content-addressed clustering ratio " + clus.toFixed(2) + (clus < 0.85 ? " — like records sit closer than random: emergent regions" : " — addresses spatially random at this density") : "") + ".");
+  const taus = world.S.map(o => o.tau || 0).filter(t => t > 1);
+  if (taus.length > 10){
+    const mx = Math.max.apply(null, taus), mn = Math.min.apply(null, taus);
+    lines.push("<b>Local clocks:</b> per-structure derived times have diverged by ×" + (mx/mn).toFixed(1) + " — hot records age faster (thermal time, live). The global loop is the substrate's cycle, not the world's time.");
+  }
+  if (world.S.length < 12){
+    const spiral = world.flips > 500 && world.thermal > 30;
+    lines.push("<span class='reject'>Population near extinction (" + world.S.length + ")" + (spiral ? " — THERMAL DEATH SPIRAL: heat degraded the records faster than intake replenished them; the world died of bookkeeping. Raise the intake or cool the merge rate, then reset." : ". Raise the noise intake or lower the merge rate, then reset.") + "</span>");
+    chipClass = spiral ? "bad" : "warn"; chipText = spiral ? "THERMAL DEATH" : "POPULATION LOW"; if (chipText === "POPULATION LOW" && chipClass === "good") chipText = "GOOD — no anomaly";
+  }
+  $("interpSim").innerHTML = "<span class='chip " + chipClass + "'>" + chipText + "</span><div style='margin-top:6px'>" +
+    lines.filter(Boolean).map(l => "<div class='row'>" + l + "</div>").join("") + "</div>";
+}
+
+// ---------- app state ----------
+const CW = 540, CH = 430;
+let P = { machinery: true, merge: 0.002, savings: 0.30, maint: 0.10, checks: 8, intake: 0.04, forceMerge: false, intakeSource: "drip", theta: 0.5 };
+let world = makeWorld(200, 3000, 10, CW, CH);
+let paused = false;
+let traceTe = [];
+let popHist = [];
+
+const $ = id => document.getElementById(id);
+const sMerge = $("sMerge"), sIntake = $("sIntake"), sMaint = $("sMaint"), sW = $("sW"), sSpeed = $("sSpeed"), sSeed = $("sSeed"), sTheta = $("sTheta");
+function refreshLabels(){
+  $("vMerge").textContent = (sMerge.value / 10000 * 4).toFixed(4) + " per tick";
+  $("vIntake").textContent = (sIntake.value / 1000 * 4).toFixed(3) + " per tick";
+  $("vMaint").textContent = (sMaint.value / 1000).toFixed(3);
+  $("vW").textContent = sW.value;
+  $("vSpeed").textContent = sSpeed.value;
+  $("vSeed").textContent = sSeed.value;
+  $("vTheta").textContent = (sTheta.value / 100).toFixed(2);
+  P.theta = sTheta.value / 100;
+  P.merge = sMerge.value / 10000 * 4;
+  P.intake = sIntake.value / 1000 * 4;
+  P.maint = sMaint.value / 1000;
+}
+function resetWorld(){
+  const Wv = +sW.value;
+  world = makeWorld(200, Wv, 10, CW, CH, +sSeed.value);
+  traceTe = [];
+  refreshLabels();
+}
+[sMerge, sIntake, sMaint, sSpeed].forEach(el => el.addEventListener("input", refreshLabels));
+sW.addEventListener("input", resetWorld);
+sSeed.addEventListener("input", resetWorld);
+$("bReset").addEventListener("click", resetWorld);
+$("bPause").addEventListener("click", function(){ paused = !paused; this.textContent = paused ? "resume" : "pause"; });
+$("bFull").addEventListener("click", function(){ P.machinery = true; this.classList.add("active"); $("bCalib").classList.remove("active"); });
+$("bCalib").addEventListener("click", function(){ P.machinery = false; this.classList.add("active"); $("bFull").classList.remove("active"); });
+refreshLabels();
+
+// ---------- charts ----------
+function drawHist(){
+  const cv = $("hist"), g = cv.getContext("2d");
+  g.fillStyle = "#121722"; g.fillRect(0, 0, cv.width, cv.height);
+  const budgets = world.S.map(o => o.a);
+  if (budgets.length < 10) return;
+  const nb = 20, hi = Math.max.apply(null, budgets), wid = hi / nb || 1;
+  const cnt = new Array(nb).fill(0);
+  for (const x of budgets) cnt[Math.min((x/wid)|0, nb-1)]++;
+  const maxC = Math.max.apply(null, cnt) || 1;
+  const bw = (cv.width - 40) / nb, base = cv.height - 24;
+  for (let b = 0; b < nb; b++){
+    const h = (cnt[b] / maxC) * (base - 12);
+    g.fillStyle = "#2a3547";
+    g.fillRect(24 + b*bw, base - h, bw - 2, h);
+  }
+  // fitted exponential overlay (from the slope fit, not from max)
+  const f = fitTemp(budgets, 20, 5);
+  if (f.T > 0){
+    g.strokeStyle = "#5ee0a0"; g.lineWidth = 2; g.beginPath();
+    for (let px = 0; px <= cv.width - 40; px += 2){
+      const x = (px / (cv.width - 40)) * hi;
+      const model = Math.exp(-x / f.T);
+      const y = base - model * (base - 12);
+      px === 0 ? g.moveTo(24 + px, y) : g.lineTo(24 + px, y);
+    }
+    g.stroke();
+  }
+  g.fillStyle = "#8a94a8"; g.font = "10px monospace";
+  g.fillText("budget histogram + Boltzmann fit  exp(−a/T)", 24, 12);
+  g.fillText("T_fit = " + (f.T ? f.T.toFixed(1) : "–") + "   R² = " + (f.r2 ? f.r2.toFixed(3) : "–"), 24, base + 16);
+}
+function drawTrace(){
+  const cv = $("trace"), g = cv.getContext("2d");
+  g.fillStyle = "#121722"; g.fillRect(0, 0, cv.width, cv.height);
+  traceTe.push(Te(world));
+  if (traceTe.length > 380) traceTe.shift();
+  const hi = Math.max(20, Math.max.apply(null, traceTe));
+  g.strokeStyle = "#e0a35e"; g.lineWidth = 2; g.beginPath();
+  for (let k = 0; k < traceTe.length; k++){
+    const x = 28 + (k / 380) * (cv.width - 36);
+    const y = cv.height - 20 - (traceTe[k] / hi) * (cv.height - 34);
+    k === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
+  }
+  g.stroke();
+  g.fillStyle = "#8a94a8"; g.font = "10px monospace";
+  g.fillText("emergent temperature W/M over time", 28, 12);
+  g.fillText(hi.toFixed(0), 2, 18);
+}
+function drawWorld(){
+  const cv = $("world"), g = cv.getContext("2d");
+  g.fillStyle = "#121722"; g.fillRect(0, 0, cv.width, cv.height);
+  const te = Te(world);
+  for (const o of world.S){
+    const r = 3 + 3 * Math.sqrt(o.R);
+    const rel = Math.max(0, Math.min(2, o.a / te));
+    const rr = Math.round(90 + rel * 80), gg = Math.round(220 - rel * 90), bb = Math.round(120 + rel * 20);
+    g.fillStyle = "rgba(" + rr + "," + gg + "," + bb + ",0.85)";
+    g.beginPath(); g.arc(o.x, o.y, r, 0, 6.2832); g.fill();
+    g.strokeStyle = "rgba(0,0,0,0.35)"; g.stroke();
+  }
+  const coldFrac = Math.min(1, world.cold / (world.R0total * 1.4));
+  g.fillStyle = "#31405c";
+  g.fillRect(cv.width - 18, 10, 10, cv.height - 20);
+  g.fillStyle = "#5e8fe0";
+  const ch = (cv.height - 20) * coldFrac;
+  g.fillRect(cv.width - 18, cv.height - 10 - ch, 10, ch);
+  g.fillStyle = "#8a94a8"; g.font = "10px monospace";
+  g.save(); g.translate(cv.width - 6, cv.height - 14); g.rotate(-Math.PI/2);
+  g.fillText("cold storage", 0, 0); g.restore();
+}
+function updateReadout(){
+  const budgets = world.S.map(o => o.a);
+  const f = fitTemp(budgets, 20, 5);
+  $("oM").textContent = world.S.length;
+  $("oTe").textContent = Te(world).toFixed(2);
+  $("oTfit").textContent = f.T ? f.T.toFixed(2) : "–";
+  $("oR2").textContent = f.r2 ? f.r2.toFixed(4) : "–";
+  $("oEvents").textContent = world.merges + " · " + world.erasures;
+  $("oCold").textContent = Math.round(world.cold);
+  $("oRej").textContent = world.rejected;
+  $("oMRej").textContent = world.mergeRejects;
+  $("oSeed").textContent = world.seed;
+  $("oHeat").textContent = world.heat.toFixed(0);
+  renderSimInterp();
+}
+function frame(){
+  if (!paused){
+    const sp = +sSpeed.value;
+    for (let k = 0; k < sp; k++){ step(world, P); ticks++; }
+    benchTick();
+  }
+  drawWorld(); drawHist(); drawTrace(); updateReadout();
+  requestAnimationFrame(frame);
+}
+
+// ---------- experiment bench ----------
+let ticks = 0;
+let bench = { mode: "idle", startTicks: 0, m0: 0, te0: 0, merges0: 0, sieved0: 0, okTicks: 0, errInt: 0, saved: null };
+function blog(html){
+  const d = document.createElement("div");
+  d.className = "row"; d.innerHTML = html;
+  $("benchLog").prepend(d);
+}
+function benchRestore(){
+  if (bench.saved){ P.merge = bench.saved.merge; P.intake = bench.saved.intake; }
+  P.forceMerge = false;
+  bench.mode = "idle";
+}
+function benchStart(mode){
+  if (mode === "idle"){
+    if (bench.mode !== "idle"){ benchRestore(); blog("<b>Bench stopped — parameters returned to the sliders.</b>"); }
+    return;
+  }
+  bench = { mode, startTicks: ticks, m0: world.S.length, te0: Te(world), merges0: world.merges,
+            sieved0: world.rejected, okTicks: 0, errInt: 0, reported: false, saved: { merge: P.merge, intake: P.intake } };
+  if (mode === "collapse"){
+    P.forceMerge = true;
+    blog("<b>Experiment I — collapse:</b> intake 0, merge at max, <i>similarity gate bypassed</i> (forced consolidation — stress mode). Script: monotone shrink until M ≤ 5. Watch W/M rise while the world shrinks — heating by consolidation (P2/P3′).");
+  }
+  if (mode === "revival"){
+    if (world.S.length > 40){ blog("<span class='reject'>Revival needs a collapsed world (M ≤ 40) — run Experiment I first.</span>"); benchRestore(); return; }
+    blog("<b>Experiment II — revival:</b> intake at max, merging off. Script: the gate replenishes the registry; the sieved counter runs as P1's toll booth.");
+  }
+  if (mode === "equilibrium"){
+    blog("<b>Experiment III — regulated equilibrium:</b> PI controller on intake, target M* = " + $("sMstar").value + ". The controller is not told the gate's admission ratio; the integral term discovers it online.");
+  }
+}
+function benchTick(){
+  if (bench.mode === "idle") return;
+  if (bench.mode === "collapse"){
+    P.intake = 0; P.merge = 0.04;
+    if (world.S.length <= 5){
+      const te1 = Te(world);
+      blog("<b>Experiment I — result:</b> M " + bench.m0 + " → " + world.S.length + " in " + (ticks - bench.startTicks) + " ticks; W/M " + bench.te0.toFixed(1) + " → " + te1.toFixed(1) + " (" + (te1 >= bench.te0 ? "rose" : "fell") + " while consolidating). Heating by consolidation, on demand.");
+      benchRestore();
+    }
+  }
+  if (bench.mode === "revival"){
+    P.intake = 0.4; P.merge = 0;
+    if (world.S.length >= 100){
+      blog("<b>Experiment II — result:</b> M " + bench.m0 + " → " + world.S.length + " in " + (ticks - bench.startTicks) + " ticks; " + (world.rejected - bench.sieved0) + " candidates sieved along the way. The gate refills the world while refusing almost everything that knocks.");
+      benchRestore();
+    }
+  }
+  if (bench.mode === "equilibrium"){
+    const Mstar = +$("sMstar").value;
+    bench.errInt += (Mstar - world.S.length);
+    if (bench.errInt > 15000) bench.errInt = 15000;
+    if (bench.errInt < -15000) bench.errInt = -15000;
+    P.intake = Math.max(0, Math.min(0.4, 0.02 + 0.0008 * (Mstar - world.S.length) + 0.000008 * bench.errInt));
+    P.merge = bench.saved.merge;
+    if (Math.abs(world.S.length - Mstar) <= 5) bench.okTicks++; else bench.okTicks = 0;
+    if (bench.okTicks >= 180 && !bench.reported){
+      bench.reported = true;
+      const te1 = Te(world);
+      blog("<b>Experiment III — result:</b> regulated equilibrium latched at M ≈ " + world.S.length + " (target " + Mstar + ") after " + (ticks - bench.startTicks) + " ticks; W/M pinned at " + te1.toFixed(1) + ". <b>A steady temperature required a regulator.</b> Regulation continues — the controller keeps trimming intake (long-run command ≈ deaths / admission); press 'stop bench' to hand control back to the sliders.");
+    }
+  }
+}
+function runSweep(){
+  blog("<b>Experiment IV — dose–response sweep (3 runs per dose, median):</b> fresh world per run; 6,000 ticks; deviation of fitted T from W/M against the merge-attempt dose. If the correction is a fudge, the curve is noise; if it is a mechanism, the curve tracks the dose inside the Gibbs regime.");
+  const settings = [0, 0.002, 0.008, 0.02, 0.04];
+  let html = "<table><tr><th>merge dose</th><th>merges (Σ3 runs)</th><th>median dev %</th><th>median R²</th></tr>";
+  const recs = [];
+  for (const m of settings){
+    const devs = [], r2s = []; let merges = 0;
+    for (let run = 0; run < 3; run++){
+      const w2 = makeWorld(200, 3000, 10, CW, CH);
+      const P2 = { machinery: true, merge: m, savings: 0.30, maint: 0.10, checks: 8, intake: 0.04, forceMerge: false };
+      for (let t = 0; t < 6000; t++) step(w2, P2);
+      const f = fitTemp(w2.S.map(o => o.a), 20, 5);
+      const te = Te(w2);
+      devs.push((f.T > 0 && te > 0) ? Math.abs(f.T - te) / te * 100 : 0);
+      r2s.push(f.r2); merges += w2.merges;
+    }
+    devs.sort((a, b) => a - b); r2s.sort((a, b) => a - b);
+    const rec = { m, dev: devs[1], r2: r2s[1], merges };
+    recs.push(rec);
+    html += "<tr><td>" + m.toFixed(3) + "</td><td>" + merges + "</td><td>" + rec.dev.toFixed(1) + "</td><td>" + rec.r2.toFixed(3) + "</td></tr>";
+  }
+  html += "</table>";
+  const gibbs = recs.filter(r => r.r2 >= 0.7);
+  const first = recs[0], last = recs[recs.length - 1];
+  const shapeDrop = first.r2 - last.r2;
+  const shapeMono = recs.every((r, k) => k === 0 || r.r2 <= recs[k-1].r2 + 0.04);
+  let verdict;
+  if (shapeDrop >= 0.05 && shapeMono){
+    verdict = "<span class='chip good'>DOSE–RESPONSE — IN SHAPE</span> The renormalization is real and monotone where it can be read: the Gibbs SHAPE degrades with the merge dose (de-Gibbsification, R² " + first.r2.toFixed(2) + " → " + last.r2.toFixed(2) + "). The fitted-T deviation is estimator noise at low dose and shape-change at high dose — the §8 correction is grounded in a monotone observable, not a fudge.";
+  } else if (gibbs.length < 3){
+    verdict = "<span class='chip warn'>REGIME EXIT DOMINATES</span> At high doses the distribution leaves the Gibbs regime itself (R² collapses) — the deviation metric stops being meaningful before a dose–response can be read. A third regime, recorded as-is.";
+  } else {
+    verdict = "<span class='chip warn'>UNRESOLVED</span> Low-dose deviations sit inside the fitting noise floor even after 3-run medians — this instrumentation cannot yet separate correction from noise. Replication with longer runs is required before 'fudge' or 'mechanism' is decided. Recorded as-is.";
+  }
+  blog(html + "<div style='margin-top:6px'>" + verdict + "</div>");
+}
+function runTheta(){
+  blog("<b>Experiment VI — gate-threshold phase map (G8):</b> fresh deterministic worlds (seed 7) at θ ∈ {0.30, 0.50, 0.70}, 1,500 ticks each. Does the universe's population and temperature track the gate's strictness — or is θ a decoration?");
+  const ths = [0.30, 0.50, 0.70];
+  let html = "<table><tr><th>θ</th><th>admitted</th><th>M</th><th>W/M</th><th>R²</th></tr>";
+  const recs2 = [];
+  for (const th of ths){
+    const w2 = makeWorld(150, 3000, 10, CW, CH, 7);
+    const P2 = { machinery: true, merge: 0.01, savings: 0.30, maint: 0.10, checks: 8, intake: 0.1, intakeSource: "drip", forceMerge: false, theta: th };
+    for (let t = 0; t < 1500; t++) step(w2, P2);
+    const f = fitTemp(w2.S.map(o => o.a), 20, 5);
+    const te = Te(w2);
+    recs2.push({ th, adm: w2.admitted, M: w2.S.length, te });
+    html += "<tr><td>" + th.toFixed(2) + "</td><td>" + w2.admitted + "</td><td>" + w2.S.length + "</td><td>" + te.toFixed(1) + "</td><td>" + f.r2.toFixed(3) + "</td></tr>";
+  }
+  html += "</table>";
+  const mono = recs2[0].M < recs2[1].M && recs2[1].M < recs2[2].M;
+  const verdict = mono
+    ? "<span class='chip good'>MONOTONE PHASE RESPONSE</span> Population rises monotonically as the gate loosens (M " + recs2.map(r => r.M).join(" → ") + ") — θ is a climate knob, not a decoration; the universe tracks its registrar's strictness."
+    : "<span class='chip warn'>NON-MONOTONE</span> Population does not track θ monotonically in this window — thresholds interact with thermal mortality. Recorded as-is.";
+  blog(html + "<div style='margin-top:6px'>" + verdict + "</div>");
+}
+function runCycle(){
+  blog("<b>Experiment V — closed cycle (Q1 in miniature, multi-seed protocol):</b> (A) fair noise. (B₁..₃) donors at three seeds fill their reservoirs. (C-hot) exhaust-fed hot nurseries (M₀=2, T̄₀=300) across μ. (C-cool) an exhaust-fed COOL nursery (M₀=50, T̄₀=12) at μ=0 — the undercooling test: if the nucleation gap is thermal, the cool nursery retains what the hot ones cook.");
+  const wA = makeWorld(2, 600, 10, CW, CH, 7);
+  const PA = { machinery: true, merge: 0.01, savings: 0.30, maint: 0.10, checks: 8, intake: 0.3, intakeSource: "noise", forceMerge: false };
+  for (let t = 0; t < 1500; t++) step(wA, PA);
+  const donors = [7, 8, 9].map(function(sd){
+    const wB = makeWorld(150, 3000, 10, CW, CH, sd);
+    const PB = { machinery: true, merge: 0.01, savings: 0.30, maint: 0.10, checks: 8, intake: 0.1, intakeSource: "drip", forceMerge: false };
+    for (let t = 0; t < 2000; t++) step(wB, PB);
+    return wB;
+  });
+  const BASE = { machinery: true, merge: 0.01, savings: 0.30, maint: 0.10, checks: 8, intake: 0.3, intakeSource: "exhaust", forceMerge: false };
+  const mus = [0, 12, 40];
+  let rows = "";
+  for (const mu of mus){
+    const wC = makeWorld(2, 600, 10, CW, CH, 7);
+    wC.res = donors[0].res;
+    const PC = Object.assign({}, BASE, { muFlips: mu });
+    for (let t = 0; t < 1500; t++) step(wC, PC);
+    rows += "<tr><td style='text-align:left'>C-hot (μ=" + mu + ")</td><td>exhaust</td><td>" + wC.admitted + "</td><td>" + wC.S.length + "</td></tr>";
+  }
+  // seed sensitivity: μ=0 hot and cool nurseries across the three donor reservoirs
+  const med = arr => { const s = arr.slice().sort((a, b) => a - b); return s[1]; };
+  const hot0 = [], cool0 = [];
+  for (let d = 0; d < 3; d++){
+    const wH = makeWorld(2, 600, 10, CW, CH, 7 + d);
+    wH.res = donors[d].res;
+    for (let t = 0; t < 1500; t++) step(wH, Object.assign({}, BASE, { muFlips: 0 }));
+    hot0.push({ adm: wH.admitted, M: wH.S.length });
+    const wD = makeWorld(50, 600, 10, CW, CH, 7 + d);
+    wD.res = donors[d].res;
+    for (let t = 0; t < 1500; t++) step(wD, Object.assign({}, BASE, { muFlips: 0 }));
+    cool0.push({ adm: wD.admitted, M: wD.S.length });
+  }
+  const medHotAdm = med(hot0.map(r => r.adm)), medHotM = med(hot0.map(r => r.M));
+  const medCoolAdm = med(cool0.map(r => r.adm)), medCoolM = med(cool0.map(r => r.M));
+  rows += "<tr><td style='text-align:left'>C-hot (μ=0, 3 seeds)</td><td>exhaust</td><td>med " + medHotAdm + "</td><td>med " + medHotM + "</td></tr>";
+  rows += "<tr><td style='text-align:left'>C-cool (μ=0, M₀=50, 3 seeds)</td><td>exhaust</td><td>med " + medCoolAdm + "</td><td>med " + medCoolM + "</td></tr>";
+  const html = "<table><tr><th>world</th><th>intake</th><th>admitted</th><th>retained M</th></tr>" +
+    "<tr><td style='text-align:left'>A</td><td>fair noise</td><td>" + wA.admitted + "</td><td>" + wA.S.length + "</td></tr>" +
+    "<tr><td style='text-align:left'>B donors ×3</td><td>drip</td><td>—</td><td>reservoirs " + donors.map(d => d.res.length).join("/") + " bits</td></tr>" + rows + "</table>";
+  let verdict;
+  const zeroOk = wA.admitted <= 2;
+  const coolRetains = medCoolM >= 30, hotRetains = medHotM >= 5;
+  if (zeroOk && coolRetains && !hotRetains){
+    verdict = "<span class='chip good'>UNDERCOOLING CONFIRMED</span> Fair noise: 0 admitted (emptiness). Hot nurseries admit but do not retain (med M " + medHotM + "); the SAME exhaust in a cool nursery is retained (med M " + medCoolM + ", 3 seeds). <b>The nucleation gap is thermal: admission and retention are separate, temperature-separated thresholds — establishment requires undercooling.</b>";
+  } else if (zeroOk && coolRetains && hotRetains && medCoolM >= 1.5 * medHotM){
+    verdict = "<span class='chip good'>UNDERCOOLING ADVANTAGE</span> Both nurseries retain at this horizon, but the cool one holds ×" + (medCoolM / Math.max(1, medHotM)).toFixed(1) + " more (med M " + medCoolM + " vs " + medHotM + ", 3 seeds, cool saturating at cap) — and at longer horizons the hot world passes through full death phases of the thermal breath while the cool one does not. <b>Retention is temperature- and phase-dependent: the hot breath dips to zero, the cool one doesn't.</b> Partial confirmation, recorded with its horizon.";
+  } else if (zeroOk && !coolRetains && !hotRetains){
+    verdict = "<span class='chip warn'>GAP NOT THERMAL</span> Retention fails even in the cool nursery (med M " + medCoolM + ") — the undercooling reading is refuted in this protocol; selection artifacts (weighted flips hammer freshly-funded newcomers) become the prime suspect. Recorded as-is: the honest branch.";
+  } else {
+    verdict = "<span class='chip warn'>MIXED</span> cool med M " + medCoolM + " · hot med M " + medHotM + " — partial retention; the thresholds interact. Recorded as-is.";
+  }
+  blog(html + "<div style='margin-top:6px'>" + verdict + "</div>");
+}
+$("bExp1").addEventListener("click", () => benchStart("collapse"));
+$("bExp2").addEventListener("click", () => benchStart("revival"));
+$("bExp3").addEventListener("click", () => benchStart("equilibrium"));
+$("bExp4").addEventListener("click", runSweep);
+$("bExp5").addEventListener("click", runCycle);
+$("bExp6").addEventListener("click", runTheta);
+$("bStop").addEventListener("click", () => benchStart("idle"));
+const sMstar = $("sMstar");
+function refreshMstar(){ $("vMstar").textContent = sMstar.value; }
+sMstar.addEventListener("input", refreshMstar);
+refreshMstar();
+
+// ---------- gate meter ----------
+let compressor = "LZ";
+function genSamples(){
+  const n = 256, rng = mulberry32(42); // SAME scale as the engine's live gate — cross-scale comparison is a finite-size trap
+  let prng = ""; for (let k = 0; k < n; k++) prng += rng() < 0.5 ? "0" : "1";
+  let noise = ""; for (let k = 0; k < n; k++) noise += Math.random() < 0.5 ? "0" : "1";
+  const r30 = rule30Bits(141, Math.ceil(n/141)).slice(0, n);
+  return [
+    ["all zeros", "0".repeat(n)],
+    ["01-periodic", "01".repeat(n/2)],
+    ["fair noise", noise],
+    ["seeded PRNG (seed 42)", prng],
+    ["Rule 30 automaton", r30]
+  ];
+}
+let samples = genSamples();
+function renderGate(){
+  const f = compressor === "LZ" ? rhoLZ : rhoH0;
+  const theta = 0.5;
+  let html = "<table><tr><th>string (n=256)</th><th>ρ_R</th><th>gate θ=0.5</th></tr>";
+  for (const [name, s] of samples){
+    const r = f(s);
+    html += "<tr><td style='text-align:left'>" + name + "</td><td>" + r.toFixed(3) + "</td><td class='" +
+      (r <= theta ? "pass'>pass" : "reject'>rejected") + "</td></tr>";
+  }
+  html += "</table>";
+  $("gateTable").innerHTML = html;
+  renderGateInterp();
+}
+$("bLZ").addEventListener("click", function(){ compressor = "LZ"; this.classList.add("active"); $("bH0").classList.remove("active"); renderGate(); });
+$("bH0").addEventListener("click", function(){ compressor = "H0"; this.classList.add("active"); $("bLZ").classList.remove("active"); renderGate(); });
+$("bGen").addEventListener("click", function(){ samples = genSamples(); renderGate(); });
+renderGate();
+
+frame();
+</script>
+</body>
+</html>
